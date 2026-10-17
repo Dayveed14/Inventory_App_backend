@@ -49,19 +49,19 @@ const loginUser = async ({ email, password }) => {
   }).select("+password");
 
   if (!user) {
-    throw new AppError("Invalid email or password", 401);
+    throw new AppError("Invalid email", 401);
   }
 
-  const isPasswordValid = await bcrypt.compare(
-    password,
-    user.password
-  );
+  const isPasswordValid = await bcrypt.compare(password, user.password);
 
   if (!isPasswordValid) {
-    throw new AppError("Invalid email or password", 401);
+    throw new AppError("Invalid password", 401);
   }
 
+  // _id is what the rest of the API and the frontend use; id is kept so
+  // older clients that read it keep working.
   return {
+    _id: user._id,
     id: user._id,
     name: user.name,
     email: user.email,
@@ -116,14 +116,10 @@ const updateUser = async (id, { name, email }) => {
     }
   }
 
-  const updatedUser = await User.findByIdAndUpdate(
-    id,
-    updateData,
-    {
-      new: true,
-      runValidators: true,
-    }
-  ).select("-password -__v");
+  const updatedUser = await User.findByIdAndUpdate(id, updateData, {
+    new: true,
+    runValidators: true,
+  }).select("-password -__v");
 
   if (!updatedUser) {
     throw new AppError("User not found", 404);
@@ -134,30 +130,22 @@ const updateUser = async (id, { name, email }) => {
 
 // Delete a user.
 const deleteUser = async (id) => {
-  const deletedUser = await User.findByIdAndDelete(id);
+  const { deletedCount } = await User.deleteOne({ _id: id });
 
-  if (!deletedUser) {
+  if (!deletedCount) {
     throw new AppError("User not found", 404);
   }
-
-  return deletedUser;
 };
 
 // Change a user's password.
-const changePassword = async (
-  id,
-  { currentPassword, newPassword }
-) => {
+const changePassword = async (id, { currentPassword, newPassword }) => {
   const user = await User.findById(id).select("+password");
 
   if (!user) {
     throw new AppError("User not found", 404);
   }
 
-  const isPasswordValid = await bcrypt.compare(
-    currentPassword,
-    user.password
-  );
+  const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
 
   if (!isPasswordValid) {
     throw new AppError("Incorrect current password", 401);

@@ -1,8 +1,11 @@
 const assetService = require("../services/asset.service");
 const AppError = require("../utils/AppError");
 
+// req.user is set by the protect middleware from the JWT, so the server,
+// not the client, decides who performed each action.
+
 const createAsset = async (req, res) => {
-  const asset = await assetService.createAsset(req.body);
+  const asset = await assetService.createAsset(req.body || {}, req.user);
 
   res.status(201).json({
     status: "success",
@@ -16,48 +19,37 @@ const uploadAssetsFromExcel = async (req, res) => {
     throw new AppError("Please upload an Excel file", 400);
   }
 
-  const performedBy = req.headers["x-user-name"];
-
-  const assets = await assetService.uploadAssetsFromExcel(
-    req.file.path,
-    performedBy
-  );
+  const assets = await assetService.uploadAssetsFromExcel(req.file.path, req.user);
 
   res.status(201).json({
     status: "success",
-    message: "Assets uploaded successfully",
+    message: `${assets.length} assets uploaded successfully`,
     count: assets.length,
     data: assets,
   });
 };
 
 const getAllAssets = async (req, res) => {
-  const assets = await assetService.getAllAssets();
+  const { data, total, page, limit } = await assetService.listAssets(req.query, req.user);
 
   res.status(200).json({
     status: "success",
-    count: assets.length,
-    data: assets,
+    count: data.length,
+    total,
+    page,
+    limit,
+    data,
   });
 };
 
 const getAssetById = async (req, res) => {
-  const asset = await assetService.getAssetById(req.params.id);
+  const asset = await assetService.getAssetById(req.params.id, req.user);
 
-  res.status(200).json({
-    status: "success",
-    data: asset,
-  });
+  res.status(200).json({ status: "success", data: asset });
 };
 
 const updateAsset = async (req, res) => {
-  const performedBy = req.headers["x-user-name"];
-
-  const asset = await assetService.updateAsset(
-    req.params.id,
-    req.body,
-    performedBy
-  );
+  const asset = await assetService.updateAsset(req.params.id, req.body || {}, req.user);
 
   res.status(200).json({
     status: "success",
@@ -66,32 +58,50 @@ const updateAsset = async (req, res) => {
   });
 };
 
-const adminUpdateAsset = async (req, res) => {
-  const performedBy = req.headers["x-user-name"];
+const deleteAsset = async (req, res) => {
+  await assetService.deleteAsset(req.params.id, req.user);
 
-  const asset = await assetService.adminUpdateAsset(
-    req.params.id,
-    req.body,
-    performedBy
-  );
+  res.status(200).json({ status: "success", message: "Asset deleted successfully" });
+};
+
+const assignAsset = async (req, res) => {
+  const asset = await assetService.assignAsset(req.params.id, req.body || {}, req.user);
 
   res.status(200).json({
     status: "success",
-    message: "Asset updated by admin successfully",
+    message: `Asset assigned to ${asset.user}`,
     data: asset,
   });
 };
 
-const deleteAsset = async (req, res) => {
-  const performedBy =
-    req.headers["x-user-name"] || req.body.performedBy || "Unknown";
-
-  await assetService.deleteAsset(req.params.id, performedBy);
+const returnAsset = async (req, res) => {
+  const asset = await assetService.returnAsset(req.params.id, req.body || {}, req.user);
 
   res.status(200).json({
     status: "success",
-    message: "Asset deleted successfully",
+    message: "Asset returned to stock",
+    data: asset,
   });
+};
+
+const changeStatus = async (req, res) => {
+  const asset = await assetService.changeStatus(req.params.id, req.body || {}, req.user);
+
+  res.status(200).json({
+    status: "success",
+    message: `Asset is now ${asset.status}`,
+    data: asset,
+  });
+};
+
+const getAssetHistory = async (req, res) => {
+  const history = await assetService.getAssetHistory(req.params.id, req.user);
+
+  res.status(200).json({ status: "success", data: history });
+};
+
+const getStatuses = (req, res) => {
+  res.status(200).json({ status: "success", data: assetService.ASSET_STATUSES });
 };
 
 module.exports = {
@@ -100,6 +110,10 @@ module.exports = {
   getAllAssets,
   getAssetById,
   updateAsset,
-  adminUpdateAsset,
   deleteAsset,
+  assignAsset,
+  returnAsset,
+  changeStatus,
+  getAssetHistory,
+  getStatuses,
 };

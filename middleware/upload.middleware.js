@@ -1,6 +1,7 @@
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const AppError = require("../utils/AppError");
 
 const uploadDirectory = path.join(process.cwd(), "uploads");
 
@@ -29,7 +30,7 @@ const fileFilter = (req, file, cb) => {
   const allowedExtensions = [".xlsx", ".xls"];
 
   if (!allowedExtensions.includes(extension)) {
-    return cb(new Error("Only Excel files (.xlsx and .xls) are allowed"));
+    return cb(new AppError("Only Excel files (.xlsx and .xls) are allowed", 400));
   }
 
   cb(null, true);

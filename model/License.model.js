@@ -1,3 +1,5 @@
+const mongoose = require("mongoose");
+
 const licenseSchema = new mongoose.Schema({
   softwareName: String,
   allowed: Number,

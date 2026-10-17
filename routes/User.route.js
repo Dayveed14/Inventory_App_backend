@@ -3,54 +3,39 @@ const express = require("express");
 const router = express.Router();
 
 const userController = require("../controllers/user.controller");
-
 const asyncHandler = require("../middleware/asyncHandler");
 const validateObjectId = require("../middleware/validateObjectId");
+const { protect, restrictTo, selfOrAdmin } = require("../middleware/auth.middleware");
+const { authLimiter } = require("../middleware/rateLimit.middleware");
 
-// Register
-router.post(
-  "/register",
-  asyncHandler(userController.registerUser)
-);
+// Public
+router.post("/register", authLimiter, asyncHandler(userController.registerUser));
+router.post("/login", authLimiter, asyncHandler(userController.loginUser));
 
-// Login
-router.post(
-  "/login",
-  asyncHandler(userController.loginUser)
-);
+// Everything below requires a valid token
+router.use(asyncHandler(protect));
 
-// Get all users
-router.get(
-  "/",
-  asyncHandler(userController.getAllUsers)
-);
+// The logged-in user's own profile
+router.get("/me", asyncHandler(userController.getMe));
 
-// Get one user
-router.get(
+// Admin only: list all users, delete a user
+router.get("/", restrictTo("admin"), asyncHandler(userController.getAllUsers));
+router.delete(
   "/:id",
   validateObjectId,
-  asyncHandler(userController.getUserById)
+  restrictTo("admin"),
+  asyncHandler(userController.deleteUser)
 );
 
-// Change password
+// A user can view and edit themselves; admins can view and edit anyone
+router.get("/:id", validateObjectId, selfOrAdmin, asyncHandler(userController.getUserById));
+router.put("/:id", validateObjectId, selfOrAdmin, asyncHandler(userController.updateUser));
+
+// Only the account owner can change their password (it requires the current one)
 router.put(
   "/:id/change-password",
   validateObjectId,
   asyncHandler(userController.changePassword)
-);
-
-// Update user
-router.put(
-  "/:id",
-  validateObjectId,
-  asyncHandler(userController.updateUser)
-);
-
-// Delete user
-router.delete(
-  "/:id",
-  validateObjectId,
-  asyncHandler(userController.deleteUser)
 );
 
 module.exports = router;

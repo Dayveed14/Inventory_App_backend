@@ -5,7 +5,7 @@ const validateObjectId = (req, res, next) => {
   const { id } = req.params;
 
   if (!mongoose.isValidObjectId(id)) {
-    return next(new AppError("Invalid asset ID", 400));
+    return next(new AppError("Invalid ID", 400));
   }
 
   next();

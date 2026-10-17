@@ -1,14 +1,24 @@
 const userService = require("../services/user.service");
 
 const AppError = require("../utils/AppError");
+const { signToken } = require("../middleware/auth.middleware");
 
-// POST /api/user/register
+const MIN_PASSWORD_LENGTH = 8;
+
+// POST /api/users/register
 const registerUser = async (req, res) => {
   const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
     throw new AppError(
       "Name, email, and password are required",
+      400
+    );
+  }
+
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new AppError(
+      `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`,
       400
     );
   }
@@ -26,7 +36,7 @@ const registerUser = async (req, res) => {
   });
 };
 
-// POST /api/user/login
+// POST /api/users/login
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
@@ -45,11 +55,20 @@ const loginUser = async (req, res) => {
   res.status(200).json({
     status: "success",
     message: "Login successful",
+    token: signToken(user),
     data: user,
   });
 };
 
-// GET /api/user
+// GET /api/users/me
+const getMe = async (req, res) => {
+  res.status(200).json({
+    status: "success",
+    data: req.user,
+  });
+};
+
+// GET /api/users
 const getAllUsers = async (req, res) => {
   const users = await userService.getAllUsers();
 
@@ -60,7 +79,7 @@ const getAllUsers = async (req, res) => {
   });
 };
 
-// GET /api/user/:id
+// GET /api/users/:id
 const getUserById = async (req, res) => {
   const user = await userService.getUserById(req.params.id);
 
@@ -70,7 +89,7 @@ const getUserById = async (req, res) => {
   });
 };
 
-// PUT /api/user/:id
+// PUT /api/users/:id
 const updateUser = async (req, res) => {
   const user = await userService.updateUser(
     req.params.id,
@@ -84,8 +103,12 @@ const updateUser = async (req, res) => {
   });
 };
 
-// DELETE /api/user/:id
+// DELETE /api/users/:id
 const deleteUser = async (req, res) => {
+  if (req.user._id.toString() === req.params.id) {
+    throw new AppError("You cannot delete your own account", 400);
+  }
+
   await userService.deleteUser(req.params.id);
 
   res.status(200).json({
@@ -94,8 +117,12 @@ const deleteUser = async (req, res) => {
   });
 };
 
-// PUT /api/user/:id/change-password
+// PUT /api/users/:id/change-password
 const changePassword = async (req, res) => {
+  if (req.user._id.toString() !== req.params.id) {
+    throw new AppError("You can only change your own password", 403);
+  }
+
   const { currentPassword, newPassword } = req.body;
 
   if (!currentPassword || !newPassword) {
@@ -105,9 +132,9 @@ const changePassword = async (req, res) => {
     );
   }
 
-  if (newPassword.length < 8) {
+  if (newPassword.length < MIN_PASSWORD_LENGTH) {
     throw new AppError(
-      "New password must be at least 8 characters long",
+      `New password must be at least ${MIN_PASSWORD_LENGTH} characters long`,
       400
     );
   }
@@ -129,6 +156,7 @@ const changePassword = async (req, res) => {
 module.exports = {
   registerUser,
   loginUser,
+  getMe,
   getAllUsers,
   getUserById,
   updateUser,
